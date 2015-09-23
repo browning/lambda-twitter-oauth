@@ -1,0 +1,82 @@
+<html>
+
+<head>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1.33.min.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+<script>
+
+$.urlParam = function(name){
+    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+    if (results==null){
+       return null;
+    }
+    else{
+       return results[1] || 0;
+    }
+}
+
+$(document).ready(function(){
+	AWS.config.credentials = new AWS.Credentials("AKIAIIJE7FPFEDNEOSVA", "IpqgVxJCefrG7jQQvweDhxzLm/yyW+JVcdEzDNUY");
+    AWS.config.region = 'us-east-1';
+
+    if ($.urlParam("oauth_token")) {
+    	console.log("We are on the callback page");
+    	var lambda = new AWS.Lambda();
+    	payload = {"type": "auth_token", "token": $.urlParam("oauth_token"), "verifier": $.urlParam("oauth_verifier"), "token_secret": sessionStorage.getItem("twitter_secret")};
+        lambda.invoke({FunctionName: 'twitteroauth', Payload: JSON.stringify(payload)}, function(err, data) {
+            if (err) {
+            	console.log(err);
+            }
+            var token = JSON.parse(data.Payload);
+            console.log(token);
+            sessionStorage.setItem('access_token', token.access_token);
+            sessionStorage.setItem('access_token_secret', token.access_token_secret);
+
+            payload = {'type': 'user_data', 'access_token': token.access_token, 'access_secret': token.access_token_secret}
+            lambda.invoke({FunctionName: 'twitteroauth', Payload: JSON.stringify(payload)}, function(err, data) {
+	            if (err) {
+	            	console.log(err);
+	            }
+	            console.log(data);
+	            profile_data = JSON.parse(JSON.parse(data.Payload));
+	            console.log(profile_data);
+	            profile_image_url = profile_data.profile_image_url;
+	            console.log(profile_image_url);
+	            $("#profile-img").append($('<img>',{id:'profile',src:profile_image_url}));
+        	});
+        });
+
+
+    }
+
+    $("#login_twitter").click(function(){
+        var lambda = new AWS.Lambda();
+        lambda.invoke({FunctionName: 'twitteroauth', Payload: JSON.stringify({"type": "request_token"})}, function(err, data) {
+            if (err) {
+            	console.log(err);
+            }
+            var token = JSON.parse(data.Payload);
+            console.log(token);
+            console.log(token.token);
+            sessionStorage.setItem('twitter_token', token.token);
+            sessionStorage.setItem('twitter_secret', token.token_secret);
+            window.location = 'https://twitter.com/oauth/authenticate?oauth_token='+token.token
+        });
+
+        return false;
+    });
+});
+</script>
+
+</head>
+
+
+<body>
+<p>hello</p>
+<a href="#" id="login_twitter">Log in with twitter</a>
+
+<div id="profile-img"></div>
+</body>
+
+</html>
